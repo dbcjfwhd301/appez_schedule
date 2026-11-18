@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>앱이지(Appez) 점검 일정 관리 시스템</title>
+    <style>
+        :root { color-scheme: dark; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d1117; color: #f8f9fa; margin: 0; padding: 20px; }
+        .container { max-width: 780px; margin: 0 auto; background: #161b22; padding: 25px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); border: 1px solid #30363d; }
+        h2 { margin-top: 0; color: #fff; text-align: center; border-bottom: 2px solid #30363d; padding-bottom: 12px; }
+        .brand-accent { color: #ff7f00; }
+
+        /* 다크 배경에서 캘린더/시계 등 브라우저 기본 아이콘이 잘 보이도록 설정 */
+        input[type="date"], input[type="time"] { color-scheme: dark; }
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: brightness(1.3);
+            cursor: pointer;
+        }
+
+        /* 상단 세션 타이머 & 로그아웃 바 */
+        .session-topbar { display: none; justify-content: flex-end; align-items: center; gap: 12px; background: #0d1117; padding: 8px 14px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 16px; }
+        .session-timer { font-size: 13px; color: #c9d1d9; font-weight: bold; }
+        .session-timer span { color: #ff7f00; font-family: monospace; font-size: 14px; }
+        .btn-logout { padding: 6px 12px; background: #30363d; color: #f8f9fa; border: 1px solid #4a535c; border-radius: 5px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-logout:hover { background: #da3633; border-color: #da3633; color: #fff; }
+
+        .login-box { max-width: 420px; margin: 30px auto; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 13px; color: #c9d1d9; }
+        .form-group input, .form-group select { width: 100%; padding: 11px; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #ff7f00; box-shadow: 0 0 0 3px rgba(255, 127, 0, 0.2); }
+
+        /* 월 선택 토글 버튼 */
+        .month-btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .month-btn { padding: 11px; border: 2px solid #30363d; background: #0d1117; color: #8b949e; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .month-btn:hover { border-color: #ff7f00; color: #fff; }
+        .month-btn.active { border-color: #ff7f00; background: #ff7f00; color: #fff; box-shadow: 0 4px 12px rgba(255, 127, 0, 0.3); }
+
+        .btn { width: 100%; padding: 12px; background: #ff7f00; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 15px; cursor: pointer; transition: 0.2s; }
+        .btn:hover:not(:disabled) { background: #e67200; }
+        .btn:disabled { background: #30363d !important; color: #8b949e !important; border-color: #30363d !important; cursor: not-allowed; opacity: 0.65; }
+
+        /* 결과 섹션 */
+        #resultSection { display: none; }
+        .company-banner { background: #0d1117; border: 1px solid #30363d; border-left: 4px solid #ff7f00; padding: 16px; border-radius: 8px; margin-bottom: 18px; }
+        .company-title { font-size: 18px; font-weight: bold; color: #fff; margin: 0 0 4px 0; }
+        .company-sub { font-size: 13px; color: #8b949e; margin: 0; }
+
+        .top-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .btn-sub { padding: 8px 14px; background: #30363d; color: #f8f9fa; border: 1px solid #4a535c; border-radius: 6px; font-size: 13px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-sub:hover { background: #ff7f00; border-color: #ff7f00; color: #fff; }
+
+        /* 엔지니어 카드 */
+        .eng-card { background: #0d1117; border: 1px solid #30363d; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+        .eng-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+        .eng-name { font-size: 16px; font-weight: bold; color: #fff; }
+        .eng-schedule-tag { background: #161b22; border: 1px solid #ff7f00; color: #ff7f00; padding: 5px 10px; border-radius: 6px; font-size: 13px; font-weight: bold; display: inline-block; margin-bottom: 10px; }
+        .eng-info { font-size: 13px; color: #c9d1d9; line-height: 1.6; margin-bottom: 12px; }
+        .eng-note { font-size: 12px; color: #8b949e; background: #161b22; padding: 8px 10px; border-radius: 5px; margin-bottom: 12px; border: 1px solid #21262d; }
+
+        .status-badge { padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .status-wait { background: #30363d; color: #c9d1d9; }
+        .status-done { background: #1a3a22; color: #4caf50; border: 1px solid #2ea043; }
+        .status-req { background: #4a3a16; color: #ffca28; border: 1px solid #d29922; }
+
+        .eng-btn-row { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid #21262d; padding-top: 12px; }
+        .btn-confirm-eng { flex: 1.4; min-width: 130px; padding: 9px 12px; background: #28a745; color: #fff; border: none; border-radius: 5px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s; }
+        .btn-confirm-eng:hover:not(:disabled) { background: #218838; }
+        button.btn-confirm-eng:disabled { background: #21262d !important; color: #6e7681 !important; border: 1px solid #30363d !important; cursor: not-allowed !important; opacity: 0.65; }
+
+        .btn-resched-eng { flex: 1.2; min-width: 120px; padding: 9px 12px; background: #ff7f00; color: #fff; border: none; border-radius: 5px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.2s; }
+        .btn-resched-eng:hover:not(:disabled) { background: #e67200; }
+        button.btn-resched-eng:disabled { background: #21262d !important; color: #6e7681 !important; border: 1px solid #30363d !important; cursor: not-allowed !important; opacity: 0.65; }
+
+        .btn-small { padding: 9px 11px; background: #161b22; color: #c9d1d9; border: 1px solid #30363d; border-radius: 5px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-small:hover:not(:disabled) { border-color: #8b949e; color: #fff; }
+        .btn-del:hover:not(:disabled) { background: #da3633; border-color: #da3633; color: #fff; }
+        button.btn-small:disabled, button.btn-del:disabled { background: #161b22 !important; color: #484f58 !important; border-color: #21262d !important; cursor: not-allowed !important; opacity: 0.5; }
+
+        /* 모달 */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); z-index: 3000; justify-content: center; align-items: center; }
+        .modal-content { background: #161b22; padding: 24px; border-radius: 12px; width: 400px; max-width: 92%; border: 1px solid #30363d; }
+        .modal-content h3 { margin-top: 0; color: #ff7f00; text-align: center; }
+        .modal-btn-group { display: flex; gap: 10px; margin-top: 18px; }
+        .btn-cancel { background: #30363d; color: #c9d1d9; }
+        .btn-cancel:hover { background: #4a535c; }
+
+        /* 글로벌 로딩 */
+        #globalLoading { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.75); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; }
+        .spinner-circle { width: 46px; height: 46px; border: 5px solid #30363d; border-top: 5px solid #ff7f00; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="globalLoading">
+        <div class="spinner-circle"></div>
+        <div id="globalLoadingText" style="font-size:14px; font-weight:bold;">처리 중입니다...</div>
+    </div>
+
+    <div class="container">
+        <!-- 상단 유휴 타이머 및 로그아웃 바 -->
+        <div id="userSessionBar" class="session-topbar">
+            <div class="session-timer">⏱️ 자동 로그아웃까지 <span id="userTimerText">10:00</span></div>
+            <button type="button" class="btn-logout" onclick="logoutUser(false)">🚪 로그아웃</button>
+        </div>
+
+        <h2>📋 <span class="brand-accent">APPEZ</span> 정기점검 일정 관리</h2>
+
+        <!-- 1. 통합 PIN 인증 화면 -->
+        <div id="loginSection" class="login-box">
+            <div class="form-group">
+                <label>조회 대상 월 <span style="color:#8b949e; font-weight:normal;">(업체 조회 시 적용)</span></label>
+                <div class="month-btn-group">
+                    <button type="button" class="month-btn" id="btnMonthCurr" onclick="selectLoginMonth('{{ current_month }}')">{{ current_month }} 점검</button>
+                    <button type="button" class="month-btn active" id="btnMonthNext" onclick="selectLoginMonth('{{ next_month }}')">{{ next_month }} 점검</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>PIN 번호 입력</label>
+                <input type="password" id="pinInput" placeholder="업체 PIN(4자리)" maxlength="30" onkeyup="if(event.key==='Enter') fetchSchedule()">
+            </div>
+            <button type="button" class="btn" onclick="fetchSchedule()">접속하기</button>
+        </div>
+
+        <!-- 2. 조회 결과 및 엔지니어별 일정 관리 -->
+        <div id="resultSection">
+            <div class="company-banner">
+                <div>
+                    <p class="company-title" id="resCompanyName"></p>
+                    <p class="company-sub" id="resCompanySub"></p>
+                </div>
+            </div>
+
+            <div class="top-actions">
+                <button type="button" class="btn-sub" onclick="openAddEngineerModal()">+ 방문 엔지니어 추가</button>
+                <button type="button" class="btn-sub" onclick="openNoteModal()">📝 업체 비고 등록</button>
+            </div>
+
+            <div id="engineerList"></div>
+        </div>
+    </div>
+
+    <!-- 모달: 엔지니어 개별 일정 변경 요청 -->
+    <div id="rescheduleModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>📅 엔지니어 일정 변경 요청</h3>
+            <p id="reschedTargetLabel" style="font-size:13px; color:#c9d1d9; text-align:center; margin-bottom:15px;"></p>
+            <input type="hidden" id="reschedRowIndex">
+            <input type="hidden" id="reschedEngName">
+            <div class="form-group"><label>희망 점검일자 *</label><input type="date" id="reschedDate"></div>
+            <div class="form-group"><label>희망 점검시간 *</label><input type="time" id="reschedTime"></div>
+            <div class="form-group"><label>변경 요청 사유 *</label><input type="text" id="reschedReason" placeholder="예: 담당자 출장으로 인한 일자 변경"></div>
+            <div class="modal-btn-group">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('rescheduleModal')">취소</button>
+                <button type="button" class="btn" onclick="submitReschedule()">변경 요청 접수</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달: 신규 엔지니어 추가 (이름, 생년월일, 이메일, 연락처, 성별만 입력) -->
+    <div id="addEngModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>➕ 방문 엔지니어 추가</h3>
+            <div class="form-group"><label>성함 *</label><input type="text" id="addEngName" placeholder="홍길동"></div>
+            <div class="form-group"><label>성별 *</label>
+                <select id="addEngGender"><option value="남">남</option><option value="여">여</option></select>
+            </div>
+            <div class="form-group"><label>연락처 *</label><input type="text" id="addEngPhone" placeholder="01012345678"></div>
+            <div class="form-group"><label>생년월일 (8자리) *</label><input type="text" id="addEngBirth" placeholder="19900101" maxlength="10"></div>
+            <div class="form-group"><label>이메일 *</label><input type="email" id="addEngEmail" placeholder="example@company.com"></div>
+            <div class="modal-btn-group">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('addEngModal')">취소</button>
+                <button type="button" class="btn" onclick="submitAddEngineer()">추가하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달: 엔지니어 정보 수정 -->
+    <div id="editEngModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>✏️ 엔지니어 정보 수정</h3>
+            <input type="hidden" id="editEngRowIndex">
+            <input type="hidden" id="editEngOrigName">
+            <div class="form-group"><label>성함 *</label><input type="text" id="editEngName"></div>
+            <div class="form-group"><label>성별 *</label>
+                <select id="editEngGender"><option value="남">남</option><option value="여">여</option></select>
+            </div>
+            <div class="form-group"><label>연락처 *</label><input type="text" id="editEngPhone"></div>
+            <div class="form-group"><label>생년월일 *</label><input type="text" id="editEngBirth"></div>
+            <div class="form-group"><label>이메일 *</label><input type="email" id="editEngEmail" placeholder="example@company.com"></div>
+            <div class="modal-btn-group">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('editEngModal')">취소</button>
+                <button type="button" class="btn" onclick="submitEditEngineer()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달: 비고 등록 -->
+    <div id="noteModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>📝 비고 / 전달사항 등록</h3>
+            <div class="form-group"><label>전달 내용</label><input type="text" id="noteInput" placeholder="출입 절차 등 전달사항 입력"></div>
+            <div class="modal-btn-group">
+                <button type="button" class="btn btn-cancel" onclick="closeModal('noteModal')">취소</button>
+                <button type="button" class="btn" onclick="submitNote()">등록</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const IDLE_TIMEOUT_SECONDS = 10 * 60;
+        const IDLE_TIMEOUT_MS = IDLE_TIMEOUT_SECONDS * 1000;
+
+        let idleTimerInterval = null;
+        let lastActivityWrite = 0;
+        let lastKeepAliveCall = 0;
+
+        let selectedLoginMonth = "{{ next_month }}";
+        let currentCompany = "";
+        let currentMonth = "";
+        let currentEngineers = [];
+
+        function isScheduleFinalized(statusStr) {
+            const s = (statusStr || '').trim();
+            return s === '일정확인완료' || s === '일정변경완료';
+        }
+
+        function formatSecondsMMSS(totalSec) {
+            const safeSec = Math.max(0, totalSec);
+            const mins = String(Math.floor(safeSec / 60)).padStart(2, '0');
+            const secs = String(safeSec % 60).padStart(2, '0');
+            return `${mins}:${secs}`;
+        }
+
+        function selectLoginMonth(monthVal) {
+            selectedLoginMonth = monthVal;
+            document.getElementById('btnMonthCurr').classList.toggle('active', monthVal === '{{ current_month }}');
+            document.getElementById('btnMonthNext').classList.toggle('active', monthVal === '{{ next_month }}');
+        }
+
+        function showLoading(msg = "처리 중입니다...") {
+            document.getElementById('globalLoadingText').innerText = msg;
+            document.getElementById('globalLoading').style.display = 'flex';
+        }
+        function hideLoading() {
+            document.getElementById('globalLoading').style.display = 'none';
+        }
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        function isUserLoggedIn() {
+            return Boolean(sessionStorage.getItem('login_pin'));
+        }
+
+        function resetIdleTimer(force = false) {
+            if (!isUserLoggedIn()) return;
+            const now = Date.now();
+            if (!force && now - lastActivityWrite < 1000) return;
+            lastActivityWrite = now;
+
+            const expiresAt = now + IDLE_TIMEOUT_MS;
+            sessionStorage.setItem('user_idle_expires', String(expiresAt));
+            document.getElementById('userTimerText').innerText = formatSecondsMMSS(IDLE_TIMEOUT_SECONDS);
+
+            if (now - lastKeepAliveCall > 60000) {
+                lastKeepAliveCall = now;
+                fetch('/keep-alive', { method: 'POST' }).catch(() => {});
+            }
+        }
+
+        function startIdleMonitor() {
+            document.getElementById('userSessionBar').style.display = 'flex';
+            resetIdleTimer(true);
+
+            if (idleTimerInterval) clearInterval(idleTimerInterval);
+            idleTimerInterval = setInterval(() => {
+                if (!isUserLoggedIn()) {
+                    clearInterval(idleTimerInterval);
+                    idleTimerInterval = null;
+                    return;
+                }
+
+                const expiresAt = parseInt(sessionStorage.getItem('user_idle_expires') || '0', 10);
+                const remainingMs = expiresAt - Date.now();
+
+                if (remainingMs <= 0) {
+                    clearInterval(idleTimerInterval);
+                    idleTimerInterval = null;
+                    logoutUser(true);
+                    return;
+                }
+
+                const totalSec = Math.ceil(remainingMs / 1000);
+                document.getElementById('userTimerText').innerText = formatSecondsMMSS(totalSec);
+            }, 1000);
+        }
+
+        ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(evtName => {
+            window.addEventListener(evtName, () => resetIdleTimer(false), { passive: true });
+        });
+
+        async function logoutUser(isExpired = false) {
+            if (idleTimerInterval) {
+                clearInterval(idleTimerInterval);
+                idleTimerInterval = null;
+            }
+            sessionStorage.removeItem('login_pin');
+            sessionStorage.removeItem('login_month');
+            sessionStorage.removeItem('user_idle_expires');
+
+            try {
+                await fetch('/logout', { method: 'POST' });
+            } catch (e) {}
+
+            document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
+            document.getElementById('userSessionBar').style.display = 'none';
+            document.getElementById('resultSection').style.display = 'none';
+            document.getElementById('pinInput').value = '';
+            document.getElementById('loginSection').style.display = 'block';
+
+            if (isExpired) {
+                alert("장시간 활동이 없어 자동 로그아웃되었습니다.\n다시 로그인해주세요.");
+            } else {
+                alert("로그아웃되었습니다.");
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            sessionStorage.removeItem('admin_idle_expires');
+
+            const savedPin = sessionStorage.getItem('login_pin');
+            const savedMonth = sessionStorage.getItem('login_month');
+            const expiresAt = parseInt(sessionStorage.getItem('user_idle_expires') || '0', 10);
+
+            if (savedPin && savedMonth) {
+                if (expiresAt && Date.now() >= expiresAt) {
+                    logoutUser(true);
+                    return;
+                }
+                document.getElementById('pinInput').value = savedPin;
+                selectLoginMonth(savedMonth);
+                fetchSchedule();
+            }
+        });
+
+        async function fetchSchedule() {
+            const pin = document.getElementById('pinInput').value.trim();
+            const targetMonth = selectedLoginMonth;
+            if (!pin) { alert("PIN 번호를 입력해주세요."); return; }
+
+            showLoading("인증 및 일정 정보를 확인 중입니다...");
+            try {
+                const res = await fetch('/check-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin, target_month: targetMonth })
+                });
+                const data = await res.json();
+
+                if (data.status === 'admin_success') {
+                    sessionStorage.removeItem('login_pin');
+                    sessionStorage.removeItem('login_month');
+                    sessionStorage.removeItem('user_idle_expires');
+                    sessionStorage.removeItem('admin_idle_expires');
+                    window.location.href = data.redirect || '/admin';
+                    return;
+                }
+
+                if (data.status === 'success') {
+                    sessionStorage.setItem('login_pin', pin);
+                    sessionStorage.setItem('login_month', targetMonth);
+                    startIdleMonitor();
+
+                    currentCompany = data.company_name;
+                    currentMonth = data.selected_month;
+                    currentEngineers = data.engineers || [];
+
+                    document.getElementById('resCompanyName').innerText = `${currentCompany} (${currentMonth} 점검)`;
+                    document.getElementById('resCompanySub').innerText = data.fixed_time
+                        ? `고정 점검시각: ${data.fixed_time} · 엔지니어별 일정 확인 및 변경이 가능합니다.`
+                        : `엔지니어별 일정 확인 완료 및 개별 일정 변경 요청이 가능합니다.`;
+
+                    renderEngineers();
+                    document.getElementById('loginSection').style.display = 'none';
+                    document.getElementById('resultSection').style.display = 'block';
+                } else {
+                    alert("❌ " + data.message);
+                }
+            } catch (e) {
+                alert("통신 오류가 발생했습니다.");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function renderEngineers() {
+            const listEl = document.getElementById('engineerList');
+            if (currentEngineers.length === 0) {
+                listEl.innerHTML = `<div class="eng-card" style="text-align:center; color:#8b949e;">등록된 점검 일정이 없습니다.</div>`;
+                return;
+            }
+
+            const isOnlyOne = (currentEngineers.length <= 1);
+            let html = '';
+
+            currentEngineers.forEach((eng, idx) => {
+                const statusText = (eng.상태 || '확인대기').trim();
+                const isFinalized = isScheduleFinalized(statusText);
+
+                let badgeClass = 'status-wait';
+                if (isFinalized) badgeClass = 'status-done';
+                else if (statusText.includes('변경요청')) badgeClass = 'status-req';
+
+                const confirmBtnLabel = statusText === '일정변경완료'
+                    ? '✅ 일정 변경 완료됨'
+                    : (statusText === '일정확인완료' ? '✅ 일정 확인 완료됨' : '✅ 일정 확인 완료');
+                const confirmDisabledAttr = isFinalized ? 'disabled' : '';
+                const reschedDisabledAttr = isFinalized ? 'disabled title="확정된 일정은 변경할 수 없습니다."' : '';
+                const delDisabledAttr = isOnlyOne ? 'disabled title="최소 1명의 엔지니어가 필요하므로 삭제할 수 없습니다."' : '';
+
+                const phoneVal = (eng.연락처 || '').trim();
+                const birthVal = (eng.생년월일 || '').trim();
+                const emailVal = (eng.이메일 || '').trim();
+                let infoParts = [];
+                if (phoneVal) infoParts.push(`연락처: <b>${phoneVal}</b>`);
+                if (birthVal) infoParts.push(`생년월일: <b>${birthVal}</b>`);
+                if (emailVal) infoParts.push(`이메일: <b>${emailVal}</b>`);
+                const infoHtml = infoParts.length > 0
+                    ? `<div class="eng-info">${infoParts.join(' &nbsp;/&nbsp; ')}</div>`
+                    : '';
+
+                html += `
+                    <div class="eng-card">
+                        <div class="eng-header">
+                            <span class="eng-name">👤 ${eng.이름} ${eng.성별 ? `<span style="font-size:13px; color:#8b949e; font-weight:normal;">(${eng.성별})</span>` : ''}</span>
+                            <span class="status-badge ${badgeClass}">${statusText}</span>
+                        </div>
+                        <div class="eng-schedule-tag">📅 ${eng.점검일자 || '일자미정'} &nbsp;|&nbsp; ⏰ ${eng.점검시간 || '시간미정'}</div>
+                        ${infoHtml}
+                        ${eng.비고 ? `<div class="eng-note">📌 ${eng.비고}</div>` : ''}
+                        <div class="eng-btn-row">
+                            <button type="button" id="confirmBtn_${idx}" class="btn-confirm-eng" ${confirmDisabledAttr} onclick="confirmSingleEngineer(${idx})">${confirmBtnLabel}</button>
+                            <button type="button" id="reschedBtn_${idx}" class="btn-resched-eng" ${reschedDisabledAttr} onclick="openRescheduleModal(${idx})">📅 일정 변경 요청</button>
+                            <button type="button" class="btn-small" onclick="openEditEngModal(${idx})">✏️ 수정</button>
+                            <button type="button" class="btn-small btn-del" ${delDisabledAttr} onclick="deleteEngineer(${idx})">🗑️ 삭제</button>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        async function confirmSingleEngineer(idx) {
+            const eng = currentEngineers[idx];
+            if (!eng || isScheduleFinalized(eng.상태)) return;
+
+            if (!confirm(`[${eng.이름}] 엔지니어의 점검 일정(${eng.점검일자} ${eng.점검시간})을 확인 완료 처리하시겠습니까?`)) return;
+
+            const btn = document.getElementById(`confirmBtn_${idx}`);
+            const reschedBtn = document.getElementById(`reschedBtn_${idx}`);
+            if (btn) btn.disabled = true;
+            if (reschedBtn) reschedBtn.disabled = true;
+
+            showLoading("일정 확인 완료 처리 중입니다...");
+            try {
+                const res = await fetch('/confirm-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        company_name: currentCompany,
+                        target_month: currentMonth,
+                        change_type: 'confirm_engineer',
+                        row_index: eng.row_index,
+                        target_engineer_name: eng.이름
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    currentEngineers[idx].상태 = '일정확인완료';
+                    renderEngineers();
+                    alert(data.message);
+                    await fetchSchedule();
+                } else {
+                    if (btn) btn.disabled = false;
+                    if (reschedBtn) reschedBtn.disabled = false;
+                    alert("⚠️ " + data.message);
+                }
+            } catch (e) {
+                if (btn) btn.disabled = false;
+                if (reschedBtn) reschedBtn.disabled = false;
+                alert("통신 오류가 발생했습니다.");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function openRescheduleModal(idx) {
+            const eng = currentEngineers[idx];
+            if (!eng || isScheduleFinalized(eng.상태)) return;
+
+            document.getElementById('reschedRowIndex').value = eng.row_index;
+            document.getElementById('reschedEngName').value = eng.이름;
+            document.getElementById('reschedTargetLabel').innerText = `대상: ${eng.이름} (현재 일정: ${eng.점검일자} ${eng.점검시간})`;
+            document.getElementById('reschedDate').value = eng.점검일자 || '';
+            document.getElementById('reschedTime').value = eng.점검시간 || '';
+            document.getElementById('reschedReason').value = '';
+            document.getElementById('rescheduleModal').style.display = 'flex';
+        }
+
+        async function submitReschedule() {
+            const rowIndex = document.getElementById('reschedRowIndex').value;
+            const engName = document.getElementById('reschedEngName').value;
+            const date = document.getElementById('reschedDate').value;
+            const time = document.getElementById('reschedTime').value;
+            const reason = document.getElementById('reschedReason').value.trim();
+
+            if (!date || !time || !reason) {
+                alert("희망 일자, 희망 시간, 변경 사유를 모두 입력해주세요.");
+                return;
+            }
+
+            showLoading("일정 변경 요청을 접수 중입니다...");
+            try {
+                const res = await fetch('/confirm-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        company_name: currentCompany,
+                        target_month: currentMonth,
+                        change_type: 'request_reschedule',
+                        row_index: parseInt(rowIndex, 10),
+                        target_engineer_name: engName,
+                        reschedule_data: { date, time, reason }
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    closeModal('rescheduleModal');
+                    alert(data.message);
+                    await fetchSchedule();
+                } else {
+                    alert("⚠️ " + data.message);
+                }
+            } catch (e) {
+                alert("통신 오류가 발생했습니다.");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function openAddEngineerModal() {
+            document.getElementById('addEngName').value = '';
+            document.getElementById('addEngPhone').value = '';
+            document.getElementById('addEngBirth').value = '';
+            document.getElementById('addEngEmail').value = '';
+            document.getElementById('addEngModal').style.display = 'flex';
+        }
+
+        async function submitAddEngineer() {
+            const name = document.getElementById('addEngName').value.trim();
+            const gender = document.getElementById('addEngGender').value;
+            const phone = document.getElementById('addEngPhone').value.trim();
+            const birth = document.getElementById('addEngBirth').value.trim();
+            const email = document.getElementById('addEngEmail').value.trim();
+
+            if (!name || !phone || !birth || !email) {
+                alert("성함, 연락처, 생년월일, 이메일을 모두 입력해주세요.");
+                return;
+            }
+
+            showLoading("엔지니어를 등록 중입니다...");
+            try {
+                const res = await fetch('/confirm-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        company_name: currentCompany,
+                        target_month: currentMonth,
+                        change_type: 'add_engineer',
+                        person_data: { name, gender, phone, birth, email }
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    closeModal('addEngModal');
+                    alert(data.message);
+                    await fetchSchedule();
+                } else {
+                    alert("⚠️ " + data.message);
+                }
+            } catch (e) {
+                alert("통신 오류가 발생했습니다.");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function openEditEngModal(idx) {
+            const eng = currentEngineers[idx];
+            if (!eng) return;
+            document.getElementById('editEngRowIndex').value = eng.row_index;
+            document.getElementById('editEngOrigName').value = eng.이름;
+            document.getElementById('editEngName').value = eng.이름;
+            document.getElementById('editEngGender').value = eng.성별 || '남';
+            document.getElementById('editEngPhone').value = eng.raw_phone || '';
+            document.getElementById('editEngBirth').value = eng.raw_birth || '';
+            document.getElementById('editEngEmail').value = eng.raw_email || '';
+            document.getElementById('editEngModal').style.display = 'flex';
+        }
+
+        async function submitEditEngineer() {
+            const rowIndex = document.getElementById('editEngRowIndex').value;
+            const origName = document.getElementById('editEngOrigName').value;
+            const name = document.getElementById('editEngName').value.trim();
+            const gender = document.getElementById('editEngGender').value;
+            const phone = document.getElementById('editEngPhone').value.trim();
+            const birth = document.getElementById('editEngBirth').value.trim();
+            const email = document.getElementById('editEngEmail').value.trim();
+
+            if (!name || !phone || !birth || !email) {
+                alert("성함, 연락처, 생년월일, 이메일을 모두 입력해주세요.");
+                return;
+            }
+
+            showLoading("정보를 수정 중입니다...");
+            try {
+                const res = await fetch('/confirm-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        company_name: currentCompany,
+                        target_month: currentMonth,
+                        change_type: 'edit_engineer',
+                        row_index: parseInt(rowIndex, 10),
+                        target_engineer_name: origName,
+                        person_data: { name, gender, phone, birth, email }
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    closeModal('editEngModal');
+                    alert(data.message);
+                    await fetchSchedule();
+                } else {
+                    alert("⚠️ " + data.message);
+                }
+            } catch (e) {
+                alert("통신 오류가 발생했습니다.");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function deleteEngineer(idx) {
+            if (currentEngineers.length <= 1) {
+                alert("최소 1명의 엔지니어 일정이 유지되어야 하므로 삭제할 수 없습니다.");
+                return;
+            }
+
+            const eng = currentEngineers[idx];
+            if (!eng) return;
+            if (!confirm(`[${eng.이름}] 엔지니어를 목록에서 삭제하시겠습니까?`)) return;
+
+            showLoading("삭제 중입니다...");
+            try {
+                const res = await fetch('/confirm-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        company_name: currentCompany,
+                        target_month: currentMonth,
+                        change_type: 'delete_engineer',
+                        row_index: eng.row_index,
+                        target_engineer_name: eng.이름
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert(data.message);
+                    await fetchSchedule();
+                } else {
+                    alert("⚠️ " + data.message);
+                }
+            } catch (e) {
+                alert("통신 오류가 발생했습니다.");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function openNoteModal() {
+            document.getElementById('noteInput').value = '';
+            document.getElementById('noteModal').style.display = 'flex';
+        }
+
+        async function submitNote() {
+            const note = document.getElementById('noteInput').value.trim();
+            if (!note) { alert("내용을 입력해주세요."); return; }
+
+            showLoading("비고를 등록 중입니다...");
+            try {
+                const res = await fetch('/confirm-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        company_name: currentCompany,
+                        target_month: currentMonth,
+                        change_type: 'add_note',
+                        note_content: note
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    closeModal('noteModal');
+                    alert(data.message);
+                    await fetchSchedule();
+                } else {
+                    alert("⚠️ " + data.message);
+                }
+            } catch (e) {
+                alert("통신 오류가 발생했습니다.");
+            } finally {
+                hideLoading();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 페이지 - 일정관리 시스템</title>
+    <style>
+        :root { color-scheme: dark; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d1117; color: #f8f9fa; margin: 0; padding: 20px; }
+        .container { max-width: 1320px; margin: 0 auto; background: #161b22; padding: 25px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); border: 1px solid #30363d; }
+        h2 { margin-top: 0; color: #fff; border-bottom: 2px solid #30363d; padding-bottom: 10px; }
+
+        /* 다크 배경에서 캘린더/시계 등 브라우저 기본 아이콘이 잘 보이도록 설정 */
+        input[type="date"], input[type="time"] { color-scheme: dark; }
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: brightness(1.3);
+            cursor: pointer;
+        }
+        
+        /* 상단 세션 타이머 & 로그아웃 바 */
+        .session-topbar { display: flex; justify-content: flex-end; align-items: center; gap: 12px; background: #0d1117; padding: 8px 14px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 16px; }
+        .session-timer { font-size: 13px; color: #c9d1d9; font-weight: bold; }
+        .session-timer span { color: #ff7f00; font-family: monospace; font-size: 14px; }
+        .btn-logout { padding: 6px 12px; background: #30363d; color: #f8f9fa; border: 1px solid #4a535c; border-radius: 5px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-logout:hover { background: #da3633; border-color: #da3633; color: #fff; }
+
+        .form-group { margin-bottom: 15px; text-align: left; }
+        .form-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 13px; color: #c9d1d9; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 5px; box-sizing: border-box; }
+        .form-group input:focus, .form-group select:focus, textarea:focus { outline: none; border-color: #ff7f00; box-shadow: 0 0 0 3px rgba(255, 127, 0, 0.2); }
+        
+        .btn { width: 100%; padding: 10px; background: #ff7f00; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn:hover { background: #e67200; }
+
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+        
+        .month-tabs { display: flex; gap: 10px; }
+        .month-tab { padding: 10px 18px; border: 2px solid #30363d; background: #0d1117; color: #8b949e; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s; }
+        .month-tab.active { border-color: #ff7f00; background: #ff7f00; color: #fff; box-shadow: 0 4px 12px rgba(255,127,0,0.3); }
+
+        .filter-bar { display: flex; justify-content: space-between; align-items: center; background: #0d1117; padding: 12px 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #30363d; flex-wrap: wrap; gap: 10px; }
+        .filter-bar input[type="date"] { padding: 6px 10px; border: 1px solid #30363d; background: #161b22; color: #fff; border-radius: 4px; font-size: 13px; }
+        .btn-reset-filter { background: #30363d; color: #c9d1d9; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        .btn-reset-filter:hover { background: #4a535c; }
+
+        .btn-bulk-delete { background: #da3633; color: #fff; border: none; padding: 6px 13px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s; }
+        .btn-bulk-delete:hover:not(:disabled) { background: #b62324; }
+        .btn-bulk-delete:disabled { background: #21262d; color: #6e7681; cursor: not-allowed; }
+
+        .batch-card { background: #161b22; padding: 14px; border-radius: 8px; border: 1px solid #30363d; margin-top: 12px; }
+        .batch-card h4 { margin: 0 0 8px 0; font-size: 14px; color: #f8f9fa; }
+        .paste-box { width: 100%; height: 90px; background: #0d1117; color: #fff; border: 1px dashed #4a535c; border-radius: 5px; padding: 8px 10px; font-size: 12px; font-family: inherit; resize: vertical; box-sizing: border-box; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 13px; color: #fff; }
+        th, td { border: 1px solid #30363d; padding: 12px 10px; text-align: center; }
+        th { background-color: #0d1117; color: #c9d1d9; font-weight: bold; }
+        input[type="checkbox"] { width: 15px; height: 15px; accent-color: #ff7f00; cursor: pointer; }
+        
+        .status-req { background-color: #4a3a16; color: #ffca28; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .status-done { background-color: #1a3a22; color: #4caf50; font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        
+        .btn-approve { background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
+        .btn-reject { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; margin-left: 5px; }
+        .btn-edit { background: #30363d; color: #fff; border: 1px solid #4a535c; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; margin-bottom: 4px; display: block; width: 100%; box-sizing: border-box; transition: 0.2s; }
+        .btn-edit:hover { background: #ff7f00; border-color: #ff7f00; }
+
+        /* 모달 스타일 */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 3000; justify-content: center; align-items: center; }
+        .modal-content { background: #161b22; padding: 25px; border-radius: 12px; width: 400px; max-width: 90%; border: 1px solid #30363d; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        .modal-content h3 { margin-top: 0; color: #fff; text-align: center; }
+        
+        .modal-btn-group { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-btn-group .btn-cancel { background: #30363d; color: #c9d1d9; }
+        .modal-btn-group .btn-cancel:hover { background: #4a535c; }
+        
+        /* 글로벌 로딩 스피너 */
+        #globalLoading { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.75); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; }
+        .spinner-circle { width: 50px; height: 50px; border: 5px solid #30363d; border-top: 5px solid #ff7f00; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        .loading-text { color: #fff; font-size: 15px; font-weight: bold; letter-spacing: 0.5px; }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <!-- 글로벌 로딩 오버레이 -->
+    <div id="globalLoading">
+        <div class="spinner-circle"></div>
+        <div class="loading-text" id="globalLoadingText">데이터를 처리 중입니다...</div>
+    </div>
+
+    <!-- 관리자 대시보드 영역 (/admin) -->
+    <div class="container" id="adminDashboard">
+        <!-- 상단 유휴 타이머 & 로그아웃 바 -->
+        <div class="session-topbar">
+            <div class="session-timer">⏱️ 자동 로그아웃까지 <span id="adminTimerText">10:00</span></div>
+            <button type="button" class="btn-logout" onclick="adminLogout(false)">🚪 로그아웃</button>
+        </div>
+
+        <div class="dashboard-header">
+            <h2>🛠️ 관리자 대시보드</h2>
+            <div class="month-tabs">
+                <button type="button" class="month-tab" id="tabCurr" onclick="switchTab('{{ current_month }}')">{{ current_month }} 점검</button>
+                <button type="button" class="month-tab active" id="tabNext" onclick="switchTab('{{ next_month }}')">{{ next_month }} 점검</button>
+                <button type="button" class="month-tab" id="tabCompany" onclick="switchTab('company')">🏢 업체 관리</button>
+            </div>
+        </div>
+
+        <!-- [A] 일정 관리 섹션 (월별) -->
+        <div id="scheduleSection">
+            <!-- 일괄 등록 통합 패널 (엑셀 / AI 표 복사·붙여넣기 전용) -->
+            <div style="background: #0d1117; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #30363d;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <h3 style="margin:0; font-size:15px; color:#ff7f00;">📥 일정 일괄 등록 (엑셀·표 붙여넣기)</h3>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="font-size: 13px; font-weight: bold;">저장할 월 시트:</label>
+                        <select id="batchTargetMonth" style="padding: 6px 10px; background:#161b22; color:#fff; border:1px solid #ff7f00; border-radius:4px; font-weight:bold;">
+                            <option value="1월">1월</option><option value="2월">2월</option><option value="3월">3월</option>
+                            <option value="4월">4월</option><option value="5월">5월</option><option value="6월">6월</option>
+                            <option value="7월">7월</option><option value="8월">8월</option><option value="9월">9월</option>
+                            <option value="10월">10월</option><option value="11월">11월</option><option value="12월" selected>12월</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="batch-card">
+                    <h4>📋 엑셀 / AI 표 복사·붙여넣기 <span style="color:#4caf50; font-size:11px;">(즉시 변환)</span></h4>
+                    <textarea id="excelPasteInput" class="paste-box" onpaste="handleExcelPaste()" placeholder="엑셀이나 AI 채팅창의 표([점검일자 | 점검시간 | 업체명 | 이름])를 드래그 복사(Ctrl+C) 후 여기에 붙여넣기(Ctrl+V) 하세요."></textarea>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px;">
+                        <span id="pasteStatusMsg" style="font-size: 12px; color: #8b949e;">붙여넣으면 아래 미리보기에 즉시 채워집니다.</span>
+                        <div style="display: flex; gap: 5px;">
+                            <button type="button" class="btn-reset-filter" onclick="clearPasteInput()">지우기</button>
+                            <button type="button" class="btn" style="width: auto; padding: 6px 12px; font-size: 12px;" onclick="parsePastedTable(false)">표 변환</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 공통 미리보기 영역 -->
+                <div id="batchPreviewArea" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px solid #30363d;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                        <p style="font-size: 13px; font-weight: bold; color: #c9d1d9; margin: 0;">💡 등록 대기 미리보기 (<span id="previewCountBadge" style="color:#ff7f00;">0</span>건) - 내용 수정 후 일괄 등록하세요</p>
+                        <button type="button" class="btn-reset-filter" onclick="closeBatchPreview()">미리보기 닫기</button>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>업체명</th><th>이름</th><th>점검일자</th><th>점검시간</th><th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batchTableBody"></tbody>
+                    </table>
+                    <button type="button" class="btn" style="background: #28a745; margin-top: 12px; width: auto; padding: 9px 22px;" onclick="saveBatchToSheet(false)">선택한 월 시트에 일괄 등록하기</button>
+                </div>
+            </div>
+
+            <!-- 필터 및 일괄 삭제 바 -->
+            <div class="filter-bar">
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                    <span>현재 조회 중: <b id="currentSelectedMonth" style="color:#ff7f00;"></b></span>
+                    <button type="button" id="btnBulkDelete" class="btn-bulk-delete" disabled onclick="deleteSelectedSchedules()">🗑️ 선택 일정 일괄 삭제 (0건)</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label for="filterDate" style="font-size: 13px; margin: 0;">📅 일자 필터:</label>
+                    <input type="date" id="filterDate" onchange="filterAndRenderSchedules()">
+                    <button type="button" class="btn-reset-filter" onclick="resetDateFilter()">전체 보기</button>
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 36px;"><input type="checkbox" id="selectAllSchedules" onchange="toggleAllSchedules(this)" title="전체 선택/해제"></th>
+                        <th>업체명</th><th>성함</th><th>생년월일</th><th>이메일</th><th>연락처</th><th>점검일자</th><th>점검시간</th><th>상태</th><th>비고</th><th>관리 조치</th>
+                    </tr>
+                </thead>
+                <tbody id="scheduleTableBody"><tr><td colspan="11">데이터를 불러오는 중입니다...</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- [B] 업체 관리 섹션 -->
+        <div id="companySection" style="display: none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="color:#ff7f00; margin:0;">🏢 등록된 업체 목록 및 정보 관리</h3>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn" style="width:auto; padding:7px 15px;" onclick="openCompanyAddModal()">+ 신규 업체 추가</button>
+                    <button type="button" class="btn" style="width:auto; padding:7px 15px; background:#30363d; color:#c9d1d9;" onclick="loadCompanyData()">🔄 새로고침</button>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>업체명</th><th>사용자 접속 PIN</th><th>고정 점검시각</th><th>비고</th><th>관리 조치</th>
+                    </tr>
+                </thead>
+                <tbody id="companyTableBody"><tr><td colspan="5">업체 정보를 불러오는 중입니다...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 모달: 일정 데이터 직접 수정 -->
+    <div id="adminEditModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>✏️ 일정 직접 수정</h3>
+            <input type="hidden" id="editRowIndex">
+            <div class="form-group"><label>업체명</label><input type="text" id="editCompany"></div>
+            <div class="form-group"><label>성함</label><input type="text" id="editName"></div>
+            <div class="form-group"><label>이메일</label><input type="email" id="editEmail" placeholder="example@company.com"></div>
+            <div class="form-group"><label>점검일자</label><input type="date" id="editDate"></div>
+            <div class="form-group"><label>점검시간 (텍스트)</label><input type="text" id="editTime" placeholder="예: 10:00"></div>
+            <div class="form-group"><label>상태</label><input type="text" id="editStatus"></div>
+            <div class="form-group"><label>비고</label><input type="text" id="editNote"></div>
+            <div class="modal-btn-group">
+                <button type="button" class="btn btn-cancel" onclick="document.getElementById('adminEditModal').style.display='none'">취소</button>
+                <button type="button" class="btn" onclick="submitAdminEdit()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달: 업체 신규 등록 -->
+    <div id="adminCompanyAddModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>🏢 신규 업체 추가</h3>
+            <div class="form-group"><label>업체명 *</label><input type="text" id="addCompName" placeholder="예: (주)앱이지"></div>
+            <div class="form-group"><label>접속 PIN 번호 (4자리) *</label><input type="text" id="addCompPin" placeholder="예: 1234" maxlength="10"></div>
+            <div class="form-group"><label>고정 점검시각 (선택)</label><input type="text" id="addCompTime" placeholder="예: 10:00 (없으면 빈칸)"></div>
+            <div class="form-group"><label>비고 (선택)</label><input type="text" id="addCompNote" placeholder="특이사항 입력"></div>
+            <div class="modal-btn-group">
+                <button type="button" class="btn btn-cancel" onclick="document.getElementById('adminCompanyAddModal').style.display='none'">취소</button>
+                <button type="button" class="btn" onclick="submitCompanyAdd()">등록하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모달: 업체 데이터 직접 수정 -->
+    <div id="adminCompanyEditModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>🏢 업체 정보 수정</h3>
+            <input type="hidden" id="editCompRowIndex">
+            <div class="form-group"><label>업체명</label><input type="text" id="editCompName"></div>
+            <div class="form-group"><label>접속 PIN 번호</label><input type="text" id="editCompPin" placeholder="숫자 4자리 권장"></div>
+            <div class="form-group"><label>고정 점검시각</label><input type="text" id="editCompTime" placeholder="예: 10:00 (없으면 빈칸)"></div>
+            <div class="form-group"><label>비고</label><input type="text" id="editCompNote"></div>
+            <div class="modal-btn-group">
+                <button type="button" class="btn btn-cancel" onclick="document.getElementById('adminCompanyEditModal').style.display='none'">취소</button>
+                <button type="button" class="btn" onclick="submitCompanyEdit()">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ADMIN_IDLE_TIMEOUT_SECONDS = 10 * 60;
+        const ADMIN_IDLE_TIMEOUT_MS = ADMIN_IDLE_TIMEOUT_SECONDS * 1000;
+
+        let adminIdleTimerInterval = null;
+        let lastAdminActivityWrite = 0;
+        let lastAdminKeepAliveCall = 0;
+
+        let selectedMonth = "{{ next_month }}";
+        let rawSchedules = []; 
+        let rawCompanies = [];
+        let currentBatchData = [];
+
+        function formatSecondsMMSS(totalSec) {
+            const safeSec = Math.max(0, totalSec);
+            const mins = String(Math.floor(safeSec / 60)).padStart(2, '0');
+            const secs = String(safeSec % 60).padStart(2, '0');
+            return `${mins}:${secs}`;
+        }
+
+        function showLoading(message = "데이터를 처리 중입니다...") {
+            document.getElementById('globalLoadingText').innerText = message;
+            document.getElementById('globalLoading').style.display = 'flex';
+        }
+        function hideLoading() {
+            document.getElementById('globalLoading').style.display = 'none';
+        }
+
+        function resetAdminIdleTimer(force = false) {
+            const now = Date.now();
+            if (!force && now - lastAdminActivityWrite < 1000) return;
+            lastAdminActivityWrite = now;
+
+            const expiresAt = now + ADMIN_IDLE_TIMEOUT_MS;
+            sessionStorage.setItem('admin_idle_expires', String(expiresAt));
+            document.getElementById('adminTimerText').innerText = formatSecondsMMSS(ADMIN_IDLE_TIMEOUT_SECONDS);
+
+            if (now - lastAdminKeepAliveCall > 60000) {
+                lastAdminKeepAliveCall = now;
+                fetch('/keep-alive', { method: 'POST' }).catch(() => {});
+            }
+        }
+
+        function startAdminIdleMonitor() {
+            resetAdminIdleTimer(true);
+            if (adminIdleTimerInterval) clearInterval(adminIdleTimerInterval);
+
+            adminIdleTimerInterval = setInterval(() => {
+                const expiresAt = parseInt(sessionStorage.getItem('admin_idle_expires') || '0', 10);
+                const remainingMs = expiresAt - Date.now();
+
+                if (remainingMs <= 0) {
+                    clearInterval(adminIdleTimerInterval);
+                    adminIdleTimerInterval = null;
+                    adminLogout(true);
+                    return;
+                }
+
+                const totalSec = Math.ceil(remainingMs / 1000);
+                document.getElementById('adminTimerText').innerText = formatSecondsMMSS(totalSec);
+            }, 1000);
+        }
+
+        ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'].forEach(evtName => {
+            window.addEventListener(evtName, () => resetAdminIdleTimer(false), { passive: true });
+        });
+
+        async function adminLogout(isExpired = false) {
+            if (adminIdleTimerInterval) {
+                clearInterval(adminIdleTimerInterval);
+                adminIdleTimerInterval = null;
+            }
+            sessionStorage.removeItem('admin_idle_expires');
+
+            try {
+                await fetch('/logout', { method: 'POST' });
+            } catch (e) {}
+
+            if (isExpired) {
+                alert("장시간 활동이 없어 자동 로그아웃되었습니다.\n다시 로그인해주세요.");
+            } else {
+                alert("로그아웃되었습니다.");
+            }
+            window.location.href = '/';
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            startAdminIdleMonitor();
+            switchTab(selectedMonth);
+        });
+
+        function switchTab(tabType) {
+            document.querySelectorAll('.month-tab').forEach(btn => btn.classList.remove('active'));
+            
+            if (tabType === 'company') {
+                document.getElementById('tabCompany').classList.add('active');
+                document.getElementById('scheduleSection').style.display = 'none';
+                document.getElementById('companySection').style.display = 'block';
+                loadCompanyData();
+            } else {
+                selectedMonth = tabType;
+                document.getElementById('filterDate').value = "";
+                if (tabType === '{{ current_month }}') document.getElementById('tabCurr').classList.add('active');
+                else document.getElementById('tabNext').classList.add('active');
+                
+                document.getElementById('scheduleSection').style.display = 'block';
+                document.getElementById('companySection').style.display = 'none';
+                document.getElementById('batchTargetMonth').value = tabType;
+                loadMonthSchedules(tabType);
+            }
+        }
+
+        async function loadMonthSchedules(month) {
+            document.getElementById('currentSelectedMonth').innerText = month;
+            document.getElementById('scheduleTableBody').innerHTML = `<tr><td colspan="11">조회 중...</td></tr>`;
+            resetSelectionUI();
+
+            showLoading(`[${month}] 일정 데이터를 불러오는 중입니다...`);
+            try {
+                const res = await fetch('/admin/get-schedules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target_month: month })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    rawSchedules = data.schedules;
+                    filterAndRenderSchedules();
+                } else {
+                    document.getElementById('scheduleTableBody').innerHTML = `<tr><td colspan="11" style="color:#f85149;">${data.message}</td></tr>`;
+                }
+            } catch (e) {
+                alert("통신 오류 발생");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function extractMonthFromDate(dateStr) {
+            if (!dateStr) return null;
+            const s = String(dateStr).trim();
+            let m = s.match(/^\d{4}[-./년\s]+(\d{1,2})[-./월\s]+\d{1,2}/);
+            if (m) return parseInt(m[1], 10);
+            m = s.match(/^(\d{1,2})[-./월\s]+\d{1,2}/);
+            if (m) return parseInt(m[1], 10);
+            return null;
+        }
+
+        function resetSelectionUI() {
+            const masterCb = document.getElementById('selectAllSchedules');
+            if (masterCb) masterCb.checked = false;
+            const btn = document.getElementById('btnBulkDelete');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = '🗑️ 선택 일정 일괄 삭제 (0건)';
+            }
+        }
+
+        function toggleAllSchedules(masterCheckbox) {
+            const checkboxes = document.querySelectorAll('.sched-checkbox');
+            checkboxes.forEach(cb => { cb.checked = masterCheckbox.checked; });
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const allCbs = document.querySelectorAll('.sched-checkbox');
+            const checkedCbs = document.querySelectorAll('.sched-checkbox:checked');
+            const count = checkedCbs.length;
+
+            const masterCb = document.getElementById('selectAllSchedules');
+            if (masterCb) {
+                masterCb.checked = (allCbs.length > 0 && count === allCbs.length);
+            }
+
+            const btn = document.getElementById('btnBulkDelete');
+            if (btn) {
+                btn.disabled = (count === 0);
+                btn.innerText = `🗑️ 선택 일정 일괄 삭제 (${count}건)`;
+            }
+        }
+
+        async function deleteSelectedSchedules() {
+            const checkedCbs = document.querySelectorAll('.sched-checkbox:checked');
+            const rowIndices = Array.from(checkedCbs).map(cb => parseInt(cb.value, 10));
+
+            if (rowIndices.length === 0) {
+                alert("삭제할 일정을 먼저 선택해주세요.");
+                return;
+            }
+
+            if (!confirm(`[${selectedMonth}] 시트에서 선택한 ${rowIndices.length}건의 일정을 정말 일괄 삭제하시겠습니까?\n삭제 후에는 복구할 수 없습니다.`)) {
+                return;
+            }
+
+            showLoading(`선택한 ${rowIndices.length}건의 일정을 삭제 중입니다...`);
+            try {
+                const res = await fetch('/admin/delete-schedules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target_month: selectedMonth,
+                        row_indices: rowIndices
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert("✅ " + data.message);
+                    await loadMonthSchedules(selectedMonth);
+                } else {
+                    alert("⚠️ 삭제 실패: " + data.message);
+                }
+            } catch (e) {
+                alert("통신 중 오류가 발생했습니다.");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function filterAndRenderSchedules() {
+            resetSelectionUI();
+            const filterVal = document.getElementById('filterDate').value; 
+            const targetMonthNum = parseInt(String(selectedMonth).replace(/[^0-9]/g, ''), 10);
+
+            let processed = rawSchedules.filter(i => {
+                const itemMonth = extractMonthFromDate(i.점검일자);
+                return itemMonth === null || itemMonth === targetMonthNum;
+            });
+
+            if (filterVal) {
+                processed = processed.filter(i => i.점검일자 && i.점검일자.includes(filterVal));
+            }
+            
+            processed.sort((a, b) => {
+                const aIsReq = a.상태 && a.상태.includes('일정변경요청');
+                const bIsReq = b.상태 && b.상태.includes('일정변경요청');
+                if (aIsReq && !bIsReq) return -1;
+                if (!aIsReq && bIsReq) return 1;
+                if ((a.점검일자 || "") !== (b.점검일자 || "")) return (a.점검일자 || "").localeCompare(b.점검일자 || "");
+                return (a.점검시간 || "").localeCompare(b.점검시간 || "");
+            });
+
+            const tbody = document.getElementById('scheduleTableBody');
+            if (processed.length === 0) { tbody.innerHTML = `<tr><td colspan="11">일정이 없습니다.</td></tr>`; return; }
+
+            let html = '';
+            processed.forEach(item => {
+                let statusBadge = item.상태.includes('변경요청') ? `<span class="status-req">${item.상태}</span>` : (item.상태.includes('완료') ? `<span class="status-done">${item.상태}</span>` : item.상태);
+                
+                let actionBtns = `<button class="btn-edit" onclick="openAdminEditModal(${item.row_index})">✏️ 직접 수정</button>`;
+                if (item.상태.includes('일정변경요청')) {
+                    actionBtns += `<div style="display:flex; justify-content:center; gap:5px;"><button class="btn-approve" onclick="processReschedule(${item.row_index}, 'approve')">승인</button><button class="btn-reject" onclick="processReschedule(${item.row_index}, 'reject')">반려</button></div>`;
+                }
+
+                html += `<tr>
+                    <td><input type="checkbox" class="sched-checkbox" value="${item.row_index}" onchange="updateSelectedCount()"></td>
+                    <td><b>${item.업체명}</b></td><td>${item.이름}</td><td>${item.생년월일}</td><td>${item.이메일 || '-'}</td><td>${item.연락처}</td>
+                    <td>${item.점검일자}</td><td>${item.점검시간}</td><td>${statusBadge}</td><td style="text-align:left;">${item.비고}</td>
+                    <td>${actionBtns}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function resetDateFilter() {
+            document.getElementById('filterDate').value = "";
+            filterAndRenderSchedules();
+        }
+
+        function openAdminEditModal(rowIndex) {
+            const item = rawSchedules.find(s => s.row_index === rowIndex);
+            if (!item) return;
+            document.getElementById('editRowIndex').value = item.row_index;
+            document.getElementById('editCompany').value = item.업체명 || '';
+            document.getElementById('editName').value = item.이름 || '';
+            document.getElementById('editEmail').value = item.이메일 || '';
+            document.getElementById('editDate').value = item.점검일자 || '';
+            document.getElementById('editTime').value = item.점검시간 || '';
+            document.getElementById('editStatus').value = item.상태 || '';
+            document.getElementById('editNote').value = item.비고 || '';
+            document.getElementById('adminEditModal').style.display = 'flex';
+        }
+
+        async function submitAdminEdit() {
+            const updated_data = {
+                "업체명": document.getElementById('editCompany').value.trim(),
+                "이름": document.getElementById('editName').value.trim(),
+                "이메일": document.getElementById('editEmail').value.trim(),
+                "점검일자": document.getElementById('editDate').value.trim(),
+                "점검시간": document.getElementById('editTime').value.trim(),
+                "상태": document.getElementById('editStatus').value.trim(),
+                "비고": document.getElementById('editNote').value.trim()
+            };
+
+            showLoading("일정 데이터를 시트에 반영 중입니다...");
+            try {
+                const res = await fetch('/admin/edit-schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target_month: selectedMonth,
+                        row_index: parseInt(document.getElementById('editRowIndex').value),
+                        updated_data: updated_data
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert("수정되었습니다.");
+                    document.getElementById('adminEditModal').style.display = 'none';
+                    await loadMonthSchedules(selectedMonth);
+                } else {
+                    alert(data.message);
+                }
+            } catch (e) {
+                alert("통신 오류");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function processReschedule(rowIndex, action) {
+            const item = rawSchedules.find(s => s.row_index === rowIndex);
+            const targetLabel = item ? `[${item.업체명} - ${item.이름}]` : '해당 엔지니어';
+            const actionText = action === 'approve' ? '승인 (요청된 일자로 변경)' : '반려';
+            if (!confirm(`${targetLabel}의 일정 변경 요청을 ${actionText}하시겠습니까?`)) return;
+
+            showLoading("일정 변경 요청을 처리 중입니다...");
+            try {
+                const res = await fetch('/admin/process-reschedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target_month: selectedMonth,
+                        row_index: rowIndex,
+                        company_name: item ? item.업체명 : '',
+                        action: action
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert("성공적으로 처리되었습니다.");
+                    await loadMonthSchedules(selectedMonth);
+                } else {
+                    alert("⚠️ 처리 실패: " + data.message);
+                }
+            } catch (e) {
+                alert("통신 중 오류가 발생했습니다.");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function handleExcelPaste() {
+            setTimeout(() => {
+                parsePastedTable(true);
+            }, 50);
+        }
+
+        function clearPasteInput() {
+            document.getElementById('excelPasteInput').value = '';
+            document.getElementById('pasteStatusMsg').innerText = '붙여넣으면 아래 미리보기에 즉시 채워집니다.';
+            document.getElementById('pasteStatusMsg').style.color = '#8b949e';
+        }
+
+        function normalizeDateString(rawDate) {
+            if (!rawDate) return "";
+            let str = rawDate.trim();
+
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth() + 1;
+
+            let fullMatch = str.match(/^(\d{4})[-./년\s]+(\d{1,2})[-./월\s]+(\d{1,2})일?$/);
+            if (fullMatch) {
+                let y = parseInt(fullMatch[1], 10);
+                let m = parseInt(fullMatch[2], 10);
+                let d = parseInt(fullMatch[3], 10);
+                return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            }
+
+            let mdMatch = str.match(/^(\d{1,2})[-./월\s]+(\d{1,2})일?$/);
+            if (mdMatch) {
+                let schedMonth = parseInt(mdMatch[1], 10);
+                let schedDay = parseInt(mdMatch[2], 10);
+                let targetYear = currentYear;
+
+                if (currentMonth >= 10 && schedMonth <= 2) {
+                    targetYear = currentYear + 1;
+                } else if (currentMonth <= 2 && schedMonth >= 11) {
+                    targetYear = currentYear - 1;
+                }
+
+                return `${targetYear}-${String(schedMonth).padStart(2, '0')}-${String(schedDay).padStart(2, '0')}`;
+            }
+
+            return str;
+        }
+
+        function normalizeTimeString(rawTime) {
+            if (!rawTime) return "";
+            let str = rawTime.trim();
+            let timeMatch = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+            if (timeMatch) {
+                return `${String(timeMatch[1]).padStart(2, '0')}:${timeMatch[2]}`;
+            }
+            return str;
+        }
+
+        function normalizeCompanyName(rawName) {
+            if (!rawName) return "";
+            const name = rawName.trim();
+            if (name === "펜타링크(주)" || name === "펜타링크") {
+                return "펜타린크(주)";
+            }
+            return name.replace(/펜타링크/g, "펜타린크");
+        }
+
+        function parsePastedTable(isAuto = false) {
+            const rawText = document.getElementById('excelPasteInput').value;
+            const statusEl = document.getElementById('pasteStatusMsg');
+
+            if (!rawText.trim()) {
+                if (!isAuto) alert("붙여넣은 표 데이터가 없습니다.");
+                return;
+            }
+
+            const lines = rawText.split(/\r?\n/).filter(line => line.trim() !== '');
+            const parsedRows = [];
+            let lastDate = "";
+            let lastTime = "";
+
+            for (let line of lines) {
+                let cols = [];
+                if (line.includes('\t')) {
+                    cols = line.split('\t').map(c => c.trim());
+                } else if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+                    cols = line.trim().slice(1, -1).split('|').map(c => c.trim());
+                } else {
+                    cols = line.split(/\s{2,}/).map(c => c.trim());
+                }
+
+                if (cols.every(c => /^[-:\s]+$/.test(c))) continue;
+                if (cols.some(c => c === '점검일자' || c === '업체명' || c === '점검시간')) continue;
+                if (cols.length < 3) continue;
+
+                let rawDate = cols[0] || "";
+                let rawTime = cols[1] || "";
+                let company = normalizeCompanyName(cols[2] || "");
+                let name = cols[3] || "";
+
+                let normDate = rawDate ? normalizeDateString(rawDate) : lastDate;
+                let normTime = rawTime ? normalizeTimeString(rawTime) : lastTime;
+
+                if (normDate) lastDate = normDate;
+                if (normTime) lastTime = normTime;
+
+                if (company || name) {
+                    parsedRows.push({
+                        업체명: company,
+                        이름: name,
+                        점검일자: normDate,
+                        점검시간: normTime
+                    });
+                }
+            }
+
+            if (parsedRows.length === 0) {
+                statusEl.innerText = "⚠️ 표 형식을 인식하지 못했습니다. [점검일자 | 점검시간 | 업체명 | 이름] 열 순서를 확인해주세요.";
+                statusEl.style.color = "#f85149";
+                return;
+            }
+
+            currentBatchData = parsedRows;
+            renderBatchPreview();
+            document.getElementById('batchPreviewArea').style.display = 'block';
+
+            const firstDateMatch = (parsedRows[0].점검일자 || "").match(/^\d{4}-(\d{2})-\d{2}$/);
+            if (firstDateMatch) {
+                const detectedMonthLabel = `${parseInt(firstDateMatch[1], 10)}월`;
+                const monthSelect = document.getElementById('batchTargetMonth');
+                if ([...monthSelect.options].some(opt => opt.value === detectedMonthLabel)) {
+                    monthSelect.value = detectedMonthLabel;
+                }
+            }
+
+            statusEl.innerText = `✅ 총 ${parsedRows.length}건 변환 완료! 아래 미리보기에서 확인 후 등록하세요.`;
+            statusEl.style.color = "#4caf50";
+        }
+
+        function renderBatchPreview() {
+            const tbody = document.getElementById('batchTableBody');
+            document.getElementById('previewCountBadge').innerText = currentBatchData.length;
+            let html = '';
+            currentBatchData.forEach((item, idx) => {
+                html += `
+                    <tr>
+                        <td><input type="text" id="batch_company_${idx}" value="${item.업체명 || ''}" style="width:100%; box-sizing:border-box; padding:5px; background:#0d1117; color:#fff; border:1px solid #30363d;"></td>
+                        <td><input type="text" id="batch_name_${idx}" value="${item.이름 || ''}" style="width:100%; box-sizing:border-box; padding:5px; background:#0d1117; color:#fff; border:1px solid #30363d;"></td>
+                        <td><input type="text" id="batch_date_${idx}" value="${item.점검일자 || ''}" style="width:100%; box-sizing:border-box; padding:5px; background:#0d1117; color:#fff; border:1px solid #30363d;"></td>
+                        <td><input type="text" id="batch_time_${idx}" value="${item.점검시간 || ''}" style="width:100%; box-sizing:border-box; padding:5px; background:#0d1117; color:#fff; border:1px solid #30363d;"></td>
+                        <td><button type="button" style="background:#dc3545; color:#fff; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;" onclick="removeBatchRow(${idx})">삭제</button></td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function removeBatchRow(idx) {
+            currentBatchData.splice(idx, 1);
+            renderBatchPreview();
+            if (currentBatchData.length === 0) closeBatchPreview();
+        }
+
+        function closeBatchPreview() {
+            currentBatchData = [];
+            document.getElementById('batchPreviewArea').style.display = 'none';
+        }
+
+        async function saveBatchToSheet(overwriteConfirmed = false) {
+            const targetMonthToSave = document.getElementById('batchTargetMonth').value;
+            const rowsToSave = [];
+            currentBatchData.forEach((item, idx) => {
+                rowsToSave.push({
+                    업체명: document.getElementById(`batch_company_${idx}`).value.trim(),
+                    이름: document.getElementById(`batch_name_${idx}`).value.trim(),
+                    점검일자: document.getElementById(`batch_date_${idx}`).value.trim(),
+                    점검시간: document.getElementById(`batch_time_${idx}`).value.trim()
+                });
+            });
+
+            if (rowsToSave.length === 0) { alert("저장할 데이터가 없습니다."); return; }
+
+            if (!overwriteConfirmed) {
+                if (!confirm(`총 ${rowsToSave.length}건의 데이터를 [${targetMonthToSave}] 시트에 일괄 등록하시겠습니까?`)) return;
+            }
+
+            showLoading(`[${targetMonthToSave}] 시트에 일괄 등록 중입니다...`);
+            try {
+                const res = await fetch('/admin/save-ocr-batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target_month: targetMonthToSave,
+                        rows: rowsToSave,
+                        overwrite_confirmed: overwriteConfirmed
+                    })
+                });
+                const data = await res.json();
+
+                if (data.status === 'confirm_overwrite') {
+                    hideLoading();
+                    if (confirm(`⚠️ ${data.message}`)) {
+                        await saveBatchToSheet(true);
+                    }
+                    return;
+                }
+
+                if (data.status === 'success') {
+                    alert(data.message);
+                    closeBatchPreview();
+                    clearPasteInput();
+                    if (selectedMonth === targetMonthToSave) await loadMonthSchedules(selectedMonth);
+                } else {
+                    alert("⚠️ 저장 실패: " + data.message);
+                }
+            } catch (e) {
+                alert("통신 중 오류가 발생했습니다.");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function loadCompanyData() {
+            document.getElementById('companyTableBody').innerHTML = `<tr><td colspan="5">조회 중...</td></tr>`;
+
+            showLoading("업체 목록을 불러오는 중입니다...");
+            try {
+                const res = await fetch('/admin/get-companies');
+                const data = await res.json();
+                if (data.status === 'success') {
+                    rawCompanies = data.companies;
+                    renderCompanies();
+                } else {
+                    alert("조회 실패: " + data.message);
+                }
+            } catch (e) {
+                alert("통신 오류");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function renderCompanies() {
+            const tbody = document.getElementById('companyTableBody');
+            if (rawCompanies.length === 0) { tbody.innerHTML = `<tr><td colspan="5">등록된 업체가 없습니다.</td></tr>`; return; }
+
+            let html = '';
+            rawCompanies.forEach(comp => {
+                let editBtn = comp.업체명 === '관리자' 
+                    ? `<span style="color:#8b949e; font-size:11px;">(시스템 계정)</span>` 
+                    : `<button class="btn-edit" onclick="openCompanyEditModal(${comp.row_index})">✏️ 정보 수정</button>`;
+                
+                html += `<tr>
+                    <td><b>${comp.업체명}</b></td>
+                    <td style="color:#ff7f00; font-weight:bold;">${comp.PIN}</td>
+                    <td>${comp.점검시각 || '-'}</td>
+                    <td style="text-align:left;">${comp.비고}</td>
+                    <td>${editBtn}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function openCompanyAddModal() {
+            document.getElementById('addCompName').value = '';
+            document.getElementById('addCompPin').value = '';
+            document.getElementById('addCompTime').value = '';
+            document.getElementById('addCompNote').value = '';
+            document.getElementById('adminCompanyAddModal').style.display = 'flex';
+        }
+
+        async function submitCompanyAdd() {
+            const new_company = {
+                "업체명": document.getElementById('addCompName').value.trim(),
+                "PIN": document.getElementById('addCompPin').value.trim(),
+                "점검시각": document.getElementById('addCompTime').value.trim(),
+                "비고": document.getElementById('addCompNote').value.trim()
+            };
+
+            if (!new_company["업체명"] || !new_company["PIN"]) {
+                alert("업체명과 접속 PIN 번호를 모두 입력해주세요.");
+                return;
+            }
+
+            showLoading("신규 업체를 등록 중입니다...");
+            try {
+                const res = await fetch('/admin/add-company', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(new_company)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    alert(data.message);
+                    document.getElementById('adminCompanyAddModal').style.display = 'none';
+                    await loadCompanyData();
+                } else {
+                    alert("⚠️ 등록 실패: " + data.message);
+                }
+            } catch (e) {
+                alert("통신 오류가 발생했습니다.");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function openCompanyEditModal(rowIndex) {
+            const comp = rawCompanies.find(c => c.row_index === rowIndex);
+            if (!comp) return;
+            document.getElementById('editCompRowIndex').value = comp.row_index;
+            document.getElementById('editCompName').value = comp.업체명 || '';
+            document.getElementById('editCompPin').value = comp.PIN || '';
+            document.getElementById('editCompTime').value = comp.점검시각 || '';
+            document.getElementById('editCompNote').value = comp.비고 || '';
+            document.getElementById('adminCompanyEditModal').style.display = 'flex';
+        }
+
+        async function submitCompanyEdit() {
+            const updated_data = {
+                "업체명": document.getElementById('editCompName').value.trim(),
+                "PIN": document.getElementById('editCompPin').value.trim(),
+                "점검시각": document.getElementById('editCompTime').value.trim(),
+                "비고": document.getElementById('editCompNote').value.trim()
+            };
+
+            showLoading("업체 정보를 수정 중입니다...");
+            try {
+                const res = await fetch('/admin/edit-company', {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ row_index: parseInt(document.getElementById('editCompRowIndex').value), updated_data: updated_data })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    document.getElementById('adminCompanyEditModal').style.display = 'none';
+                    alert("업체 정보가 수정되었습니다.");
+                    await loadCompanyData();
+                } else {
+                    alert(data.message);
+                }
+            } catch (e) {
+                alert("통신 오류");
+            } finally {
+                hideLoading();
+            }
+        }
+    </script>
+</body>
+</html>
