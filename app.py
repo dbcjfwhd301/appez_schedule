@@ -607,7 +607,7 @@ def admin_edit_company():
     row_index = data.get('row_index')
     updated_data = data.get('updated_data', {})
     new_pin = str(updated_data.get('PIN', '')).strip()
-    
+     
     try: 
         sheet = get_google_sheet("업체")
         records = sheet.get_all_records()
